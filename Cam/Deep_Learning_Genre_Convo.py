@@ -25,9 +25,7 @@ K.set_image_dim_ordering('th') # Avoid input to Flatten is not fully defined
 
 # Create the haar cascade
 cascPath = 'haarcascade_frontalface_default.xml'
-profile_CascPath = 'haarcascade_profileface.xml'
 faceCascade = cv2.CascadeClassifier(cascPath)
-profile_faceCascade = cv2.CascadeClassifier(profile_CascPath)
 
 # fix random seed for reproducibility
 seed = 7
@@ -38,10 +36,10 @@ dataframe = pandas.read_csv("database2828", header=None, sep=" ")
 dataset = dataframe.values
 
 
-
-
 # Load pretrained model. Details can be found in the model file
-model = load_model('model_Convo')
+#model = load_model('model_Convo')
+model30 = load_model('model_Convo3.0')
+model20 = load_model('model_Convo2.0')
 
 #Cam input
 
@@ -75,78 +73,80 @@ while True:
 		break
 
 	frame = imutils.resize(frame, width=500)
- 	gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+	#frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB) # On passe de BGR a RGB !
+ 	#gray = cv2.cvtColor(frame, cv2.COLOR_RGB2GRAY)
 	
 	# Detect faces in the image
 	faces = faceCascade.detectMultiScale(frame, 1.1,  5)
 	
 	# Not wholly used
 	X2_test = dataset[2598:2600,0:784]
+
 	
 	
 	
 	for (x,y,w,h) in faces:
 
-		X_test = X2_test
+		X_test20 = X2_test
+		X_test30 = X2_test
 		
-		cv2.rectangle(frame,(x,y),(x+w,y+h),(255,0,0),2)
-		roi_gray = gray[y:y+h, x:x+w]
 		
-		roi_gray = imutils.resize(roi_gray, width=28, height=28)
+		
+		face = frame[y:y+h, x:x+w] # On crop le visage/
 
-		numrows = len(roi_gray)    # 3 rows in your example
-		numcols = len(roi_gray[0]) # 2 columns in your example
+		face = cv2.cvtColor(face, cv2.COLOR_BGR2RGB) # On passe de BGR a RGB !
+		pic = Image.fromarray(face)
+		img = pic.resize((28,28))
+		
+		"""
+		img.save("test.jpg")
+		break
+		"""
+		
+		# Passe l'image en niveau de gris
+		img = ImageOps.grayscale(img)
+
+		# img -> data
+		imgdata = img.getdata()
+		image_tab = numpy.array(imgdata)
+		#print(image_tab[0:99])
+		
+
+		"""	
+		numrows = len(image_tab)    
+		numcols = len(image_tab[0]) 
+
+		print(numrows, numcols)
 
 		if (numcols == 28 and numrows == 28):
+		"""
 
-			
-			
-			img_tab = range(0,784)
-			for i in range(0,28):
-				for j in range(0,28):	
-					
-					
-					X_test[0][i+j*28]= roi_gray[i][j]
-			#X_test[0] = img_tab[0:784]# Un pour pouvoir passer en 2D
+		X_test20[0] = image_tab[0:784]
+		X_test30[0] = image_tab[0:784]
+
+		X_test20 = X_test20.reshape(X_test20.shape[0], 1, 28, 28).astype('float32')
+		X_test30 = X_test30.reshape(X_test30.shape[0], 1, 28, 28).astype('float32')
 		
-			X_test = X_test.reshape(X_test.shape[0], 1, 28, 28).astype('float32')
+		Z20 = model20.predict(X_test20, batch_size=32, verbose=0)
+		Z30 = model30.predict(X_test30, batch_size=32, verbose=0)
 		
-			Z = model.predict(X_test, batch_size=32, verbose=0)
-			if (Z[0][0]*2 < Z[0][1]):
-				Genre = "homme"
-			elif (Z[0][0] > 2*Z[0][1]):
-				Genre = "femme"
-			else:
-				Genre = "?"
-	
-			cv2.putText(frame,Genre,(x,y), cv2.FONT_HERSHEY_SIMPLEX, 1,(255,255,255),2)
- 	
+		if ((Z20[0][0]+Z30[0][0])< Z20[0][1]+Z30[0][1]):
+			Genre = "homme"
+		elif (Z20[0][0]+Z30[0][0]> (Z20[0][1]+Z30[0][1])):
+			Genre = "femme"
+		else:
+			Genre = "?"
 
-	# Detect profiles in the image
-
-	#profiles = profile_faceCascade.detectMultiScale(frame, 1.1,  5)
-
-	#for (x,y,w,h) in profiles:
-	#	cv2.rectangle(frame,(x,y),(x+w,y+h),(255,0,0),2)
-	#	roi_gray = gray[y:y+h, x:x+w]
-	#	
-	#	roi_gray = imutils.resize(roi_gray, width=10, height=10)
-
-	#	img_tab = range(0,99)
-	#	for i in range(0,9):
-	#		for j in range(0,9):	
-	#			img_tab[i+j*10]= roi_gray[j][i]
-	#	X_test[0] = img_tab[0:99]
-	
-	#	Z = model.predict(X_test, batch_size=32, verbose=0)
-	#	if (Z[0][0]*2 < Z[0][1]):
-	#		Genre = "homme"
-	#	elif (Z[0][0] > 2*Z[0][1]):
-	#		Genre = "femme"
-	#	else:
-	#		Genre = "?"
-		
-	#	cv2.putText(frame,Genre,(x,y), cv2.FONT_HERSHEY_SIMPLEX, 1,(255,255,255),2)
+		"""
+		if (Z[0][0]*2 < Z[0][1]):
+			Genre = "homme"
+		elif (Z[0][0] > 2*Z[0][1]):
+			Genre = "femme"
+		else:
+			Genre = "?"
+		"""
+		cv2.rectangle(frame,(x,y),(x+w,y+h),(255,0,0),2)
+		cv2.putText(frame,Genre,(x,y), cv2.FONT_HERSHEY_SIMPLEX, 1,(255,255,255),2)
 
 	cv2.imshow("cam",frame)
 	key = cv2.waitKey(1) & 0xFF
